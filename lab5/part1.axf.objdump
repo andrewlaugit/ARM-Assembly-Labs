@@ -1,0 +1,177 @@
+
+C:/Users/AndrewLaptop/Documents/ece243labs/lab5/part1.axf:     file format elf32-littlearm
+
+
+Disassembly of section .text:
+
+00000000 <__cs3_interrupt_vector>:
+/* Program that counts consecutive 1's */
+
+          .text                   // executable code follows
+          .global _start                  
+
+_start: 	MOV     R4, #KEY_ADD    // load the key adress into r4
+   0:	e3a040fc 	mov	r4, #252	; 0xfc
+		LDR	R4, [R4]
+   4:	e5944000 	ldr	r4, [r4]
+		MOV	R8, #0b1000	// pattern for key 3 press
+   8:	e3a08008 	mov	r8, #8
+		MOV	R7, #0b0100	// pattern for key 2 press	
+   c:	e3a07004 	mov	r7, #4
+ 	  	MOV	R6, #0b0010	// pattern for key 1 press
+  10:	e3a06002 	mov	r6, #2
+		MOV	R5, #0b0001	// pattern for key 0 press
+  14:	e3a05001 	mov	r5, #1
+		MOV	R3, #0		// r3 will hold the display number
+  18:	e3a03000 	mov	r3, #0
+		BL	DISPLAY		// write 0 to the hex0 initially
+  1c:	eb000025 	bl	b8 <DISPLAY>
+
+00000020 <MAIN>:
+MAIN:		LDR	R1, [R4]	// read the KEY	
+  20:	e5941000 	ldr	r1, [r4]
+		CMP	R5, R1		// compare pattern with key0 press
+  24:	e1550001 	cmp	r5, r1
+		BEQ	WRITE0
+  28:	0a000006 	beq	48 <WRITE0>
+		CMP	R6, R1		// compare pattern with key1 press
+  2c:	e1560001 	cmp	r6, r1
+		BEQ	ADD1	
+  30:	0a000009 	beq	5c <ADD1>
+		CMP	R7, R1		// compare pattern with key2 press
+  34:	e1570001 	cmp	r7, r1
+		BEQ	SUB1	
+  38:	0a00000e 	beq	78 <SUB1>
+		CMP	R8, R1		// compare pattern with key3 press
+  3c:	e1580001 	cmp	r8, r1
+		BEQ	BLANK
+  40:	0a000013 	beq	94 <BLANK>
+		B	MAIN		// loop
+  44:	eafffff5 	b	20 <MAIN>
+
+00000048 <WRITE0>:
+
+WRITE0:		LDR	R1, [R4]	// read the KEY	
+  48:	e5941000 	ldr	r1, [r4]
+		CMP	R1, #0
+  4c:	e3510000 	cmp	r1, #0
+		BNE	WRITE0		// repeat until key has been released
+  50:	1afffffc 	bne	48 <WRITE0>
+		MOV	R3, #0		// count = 0
+  54:	e3a03000 	mov	r3, #0
+		B	DISPLAY
+  58:	ea000016 	b	b8 <DISPLAY>
+
+0000005c <ADD1>:
+
+ADD1:		LDR	R1, [R4]	// read the KEY	
+  5c:	e5941000 	ldr	r1, [r4]
+		CMP	R1, #0
+  60:	e3510000 	cmp	r1, #0
+		BNE	ADD1		// repeat until key has been released
+  64:	1afffffc 	bne	5c <ADD1>
+		ADD	R3, #1		// count ++
+  68:	e2833001 	add	r3, r3, #1
+		CMP	R3, #9		// if 10, need to revert back to 0
+  6c:	e3530009 	cmp	r3, #9
+		BGT	WRITE0
+  70:	cafffff4 	bgt	48 <WRITE0>
+		B	DISPLAY
+  74:	ea00000f 	b	b8 <DISPLAY>
+
+00000078 <SUB1>:
+
+SUB1:		LDR	R1, [R4]	// read the KEY	
+  78:	e5941000 	ldr	r1, [r4]
+		CMP	R1, #0
+  7c:	e3510000 	cmp	r1, #0
+		BNE	SUB1		// repeat until key has been released
+  80:	1afffffc 	bne	78 <SUB1>
+		SUB	R3, #1		// count --
+  84:	e2433001 	sub	r3, r3, #1
+		CMP	R3, #0		// if -ve, revert back to 0
+  88:	e3530000 	cmp	r3, #0
+		BLT	WRITE0	
+  8c:	baffffed 	blt	48 <WRITE0>
+		B	DISPLAY
+  90:	ea000008 	b	b8 <DISPLAY>
+
+00000094 <BLANK>:
+
+BLANK:		LDR	R1, [R4]	// read the KEY	
+  94:	e5941000 	ldr	r1, [r4]
+		CMP	R1, #0
+  98:	e3510000 	cmp	r1, #0
+		BNE	BLANK		// repeat until key has been released
+  9c:	1afffffc 	bne	94 <BLANK>
+		MOV	R3, #-1		// count = -1, (for no blank)
+  a0:	e3e03000 	mvn	r3, #0
+		B	DISPLAY
+  a4:	ea000003 	b	b8 <DISPLAY>
+
+000000a8 <ANYKEY>:
+
+ANYKEY:		LDR	R1, [R4]	// read the hex
+  a8:	e5941000 	ldr	r1, [r4]
+		CMP	R1, #0
+  ac:	e3510000 	cmp	r1, #0
+		BNE	WRITE0		// write 0 to the hex
+  b0:	1affffe4 	bne	48 <WRITE0>
+		B	ANYKEY		// loop			
+  b4:	eafffffb 	b	a8 <ANYKEY>
+
+000000b8 <DISPLAY>:
+
+/* Display R5 on HEX1-0, R6 on HEX3-2 and R7 on HEX5-4 */
+DISPLAY:       	MOV	R12, #0
+  b8:	e3a0c000 	mov	r12, #0
+		MOV	R9, #HEX_ADD1	// r8 holds hex address of HEX3-HEX0
+  bc:	e3a090f4 	mov	r9, #244	; 0xf4
+		LDR	R9, [R9]
+  c0:	e5999000 	ldr	r9, [r9]
+		STR	R12, [R9]	// blank the screen
+  c4:	e589c000 	str	r12, [r9]
+		CMP	R3, #-1		// if key3 was pressed, done
+  c8:	e3730001 	cmn	r3, #1
+		BEQ	ANYKEY
+  cc:	0afffff5 	beq	a8 <ANYKEY>
+		BL	SEG7_CODE
+  d0:	eb000004 	bl	e8 <SEG7_CODE>
+		STR	R0, [R9]	// store value (not blank)
+  d4:	e5890000 	str	r0, [r9]
+
+		MOV	R9, #HEX_ADD2	// r8 holds hex address of HEX5-HEX4
+  d8:	e3a090f8 	mov	r9, #248	; 0xf8
+		LDR	R9, [R9]
+  dc:	e5999000 	ldr	r9, [r9]
+		STR	R12, [R9]	// blank the screen	
+  e0:	e589c000 	str	r12, [r9]
+		B	MAIN
+  e4:	eaffffcd 	b	20 <MAIN>
+
+000000e8 <SEG7_CODE>:
+/* Subroutine to convert the digits from 0 to 9 to be shown on a HEX display.
+ * 	Parameters: R0 = the decimal value of the digit to be displayed
+ * 	Returns: R0 = bit patterm to be written to the HEX display
+ */
+
+SEG7_CODE:  	MOV     R2, #BIT_CODES
+  e8:	e3a02c01 	mov	r2, #256	; 0x100
+            	LDRB    R0, [R2, R3]    
+  ec:	e7d20003 	ldrb	r0, [r2, r3]
+            	MOV     PC, LR     
+  f0:	e1a0f00e 	mov	pc, lr
+
+000000f4 <HEX_ADD1>:
+  f4:	ff200020 	.word	0xff200020
+
+000000f8 <HEX_ADD2>:
+  f8:	ff200030 	.word	0xff200030
+
+000000fc <KEY_ADD>:
+  fc:	ff200050 	.word	0xff200050
+
+00000100 <BIT_CODES>:
+ 100:	4f5b063f 	.word	0x4f5b063f
+ 104:	077d6d66 	.word	0x077d6d66
+ 108:	0000677f 	.word	0x0000677f

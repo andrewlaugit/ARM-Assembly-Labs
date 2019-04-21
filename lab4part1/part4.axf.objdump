@@ -1,0 +1,252 @@
+
+C:/Users/AndrewLaptop/Documents/ece243labs/lab4part1/part4.axf:     file format elf32-littlearm
+
+
+Disassembly of section .text:
+
+00000000 <__cs3_interrupt_vector>:
+/* Program that counts consecutive 1's */
+
+          .text                   // executable code follows
+          .global _start                  
+
+_start: 	MOV     R4, #TEST_NUM   // load the data word address into r4
+   0:	e3a04f59 	mov	r4, #356	; 0x164
+		MOV	R5, #0		// store max 1s in R5
+   4:	e3a05000 	mov	r5, #0
+		MOV	R6, #0		// store max 0s in R6
+   8:	e3a06000 	mov	r6, #0
+		MOV	R7, #0		// store max 1010s in R7
+   c:	e3a07000 	mov	r7, #0
+
+00000010 <MAIN>:
+MAIN:   	LDR     R1, [R4], #4    // load word into R1
+  10:	e4941004 	ldr	r1, [r4], #4
+		CMP	R1, #0		// loop until word is 0
+  14:	e3510000 	cmp	r1, #0
+		BEQ	DISPLAY		// print results onto hex
+  18:	0a000029 	beq	c4 <DISPLAY>
+		BL	ONES		// get number of 1s in the word
+  1c:	eb000009 	bl	48 <ONES>
+		CMP	R5, R0		// compare r5-r0 to check for max
+  20:	e1550000 	cmp	r5, r0
+		MOVLT	R5, R0		// if r0 larger than r5 (neg result), store it
+  24:	b1a05000 	movlt	r5, r0
+		BL	ZEROS		// get number of 0s in the word
+  28:	eb000010 	bl	70 <ZEROS>
+		CMP	R6, R0		// compare r6-r0 to check for max
+  2c:	e1560000 	cmp	r6, r0
+		MOVLT	R6, R0		// if r0 larger than r6 (neg result), store it
+  30:	b1a06000 	movlt	r6, r0
+		BL	ALTS		// get number of 0s in the word
+  34:	eb000014 	bl	8c <ALTS>
+		CMP	R7, R0		// compare r7-r0 to check for max
+  38:	e1570000 	cmp	r7, r0
+		MOVLT	R7, R0		// if r0 larger than r7 (neg result), store it
+  3c:	b1a07000 	movlt	r7, r0
+		B	MAIN		// repeat
+  40:	eafffff2 	b	10 <MAIN>
+
+00000044 <END>:
+END:		B	END
+  44:	eafffffe 	b	44 <END>
+
+00000048 <ONES>:
+
+ONES:		MOV     R0, #0          // R0 will hold the result
+  48:	e3a00000 	mov	r0, #0
+		PUSH	{R1}		// save r1 for later
+  4c:	e52d1004 	push	{r1}		; (str r1, [sp, #-4]!)
+
+00000050 <LOOP_ONE>:
+LOOP_ONE:   	CMP     R1, #0        	// loop until the data contains no more 1's
+  50:	e3510000 	cmp	r1, #0
+       		BEQ     END_ONES	//             
+  54:	0a000003 	beq	68 <END_ONES>
+        	LSR     R2, R1, #1    	// perform SHIFT, followed by AND
+  58:	e1a020a1 	lsr	r2, r1, #1
+        	AND     R1, R1, R2    	// removes 1 consective 1  
+  5c:	e0011002 	and	r1, r1, r2
+        	ADD     R0, #1        	// count the string length so far
+  60:	e2800001 	add	r0, r0, #1
+        	B       LOOP_ONE		
+  64:	eafffff9 	b	50 <LOOP_ONE>
+
+00000068 <END_ONES>:
+END_ONES:       POP	{R1}		// return original r1
+  68:	e49d1004 	pop	{r1}		; (ldr r1, [sp], #4)
+		MOV	PC, LR		// return to caller
+  6c:	e1a0f00e 	mov	pc, lr
+
+00000070 <ZEROS>:
+
+ZEROS:		PUSH	{R1,LR}		// save r1 and LR for later
+  70:	e92d4002 	push	{r1, lr}
+		MOV	R2, #ALL_ONES	// get address of all ones
+  74:	e3a02e17 	mov	r2, #368	; 0x170
+		LDR	R2, [R2]	// load all 1s into r2
+  78:	e5922000 	ldr	r2, [r2]
+		EOR	R1, R1, R2	// xor with 1s to 'not' r1, making all 1->0, 0->1 
+  7c:	e0211002 	eor	r1, r1, r2
+		BL	ONES		// get number of zeros
+  80:	ebfffff0 	bl	48 <ONES>
+		POP	{R1, LR}	// return original value
+  84:	e8bd4002 	pop	{r1, lr}
+		MOV	PC, LR		// return to caller
+  88:	e1a0f00e 	mov	pc, lr
+
+0000008c <ALTS>:
+
+ALTS:		PUSH	{R1,LR}		// save r1 and LR for later
+  8c:	e92d4002 	push	{r1, lr}
+		MOV	R3, #0		// store max in r3 for now
+  90:	e3a03000 	mov	r3, #0
+		MOV	R2, #ALL_ALT	// get address of all 1010s
+  94:	e3a02f5d 	mov	r2, #372	; 0x174
+		LDR	R2, [R2]	// load all 1010s into r2
+  98:	e5922000 	ldr	r2, [r2]
+		EOR	R1, R1, R2	// xor with 1010... to make alternatings 0s or 1s
+  9c:	e0211002 	eor	r1, r1, r2
+		BL	ONES		// if 1010 matches with 0101, get max number of alternating
+  a0:	ebffffe8 	bl	48 <ONES>
+		CMP	R3, R0		// compare r3-r0 to check for max
+  a4:	e1530000 	cmp	r3, r0
+		MOVLT	R3, R0		// if r0 larger than r3 (neg result), store it
+  a8:	b1a03000 	movlt	r3, r0
+		BL	ZEROS		// if 1010 matches with 1010, get max number of alternating
+  ac:	ebffffef 	bl	70 <ZEROS>
+		CMP	R3, R0		// compare r3-r0 to check for max
+  b0:	e1530000 	cmp	r3, r0
+		MOVLT	R3, R0		// if r0 larger than r3 (neg result), store it
+  b4:	b1a03000 	movlt	r3, r0
+		MOV	R0, R3		// return r0
+  b8:	e1a00003 	mov	r0, r3
+		POP	{R1, LR}	// restore original values
+  bc:	e8bd4002 	pop	{r1, lr}
+		MOV	PC, LR		// return to caller
+  c0:	e1a0f00e 	mov	pc, lr
+
+000000c4 <DISPLAY>:
+
+/* Display R5 on HEX1-0, R6 on HEX3-2 and R7 on HEX5-4 */
+DISPLAY:       	MOV	R8, #HEX_ADD1	// r8 holds hex address of HEX3-HEX0
+  c4:	e3a08f5e 	mov	r8, #376	; 0x178
+		LDR	R8, [R8]
+  c8:	e5988000 	ldr	r8, [r8]
+		MOV	R9, #10		// divide by value
+  cc:	e3a0900a 	mov	r9, #10
+		MOV	R0, R5		// post r5 on hex 0 and 1 ==============================================
+  d0:	e1a00005 	mov	r0, r5
+		BL	DIVIDE		// convert to decimals
+  d4:	eb000018 	bl	13c <DIVIDE>
+		MOV	R4, R0		// get hex code for ones digit
+  d8:	e1a04000 	mov	r4, r0
+		BL	SEG7_CODE	
+  dc:	eb00001d 	bl	158 <SEG7_CODE>
+		STRB	R4, [R8]	// store ones digit into hex 0
+  e0:	e5c84000 	strb	r4, [r8]
+		MOV	R4, R1		// get hex code for ones digit
+  e4:	e1a04001 	mov	r4, r1
+		BL	SEG7_CODE	
+  e8:	eb00001a 	bl	158 <SEG7_CODE>
+		STRB	R4, [R8, #1]	// store tens digit into hex 1
+  ec:	e5c84001 	strb	r4, [r8, #1]
+		MOV	R0, R6		// repeat for r6 on hex 2 and 3 ==============================================
+  f0:	e1a00006 	mov	r0, r6
+		BL	DIVIDE		
+  f4:	eb000010 	bl	13c <DIVIDE>
+		MOV	R4, R0		
+  f8:	e1a04000 	mov	r4, r0
+		BL	SEG7_CODE	
+  fc:	eb000015 	bl	158 <SEG7_CODE>
+		STRB	R4, [R8, #2]	
+ 100:	e5c84002 	strb	r4, [r8, #2]
+		MOV	R4, R1		
+ 104:	e1a04001 	mov	r4, r1
+		BL	SEG7_CODE	
+ 108:	eb000012 	bl	158 <SEG7_CODE>
+		STRB	R4, [R8, #3]	
+ 10c:	e5c84003 	strb	r4, [r8, #3]
+		MOV	R8, #HEX_ADD2	// r8 holds hex address of HEX5-HEX4
+ 110:	e3a08f5f 	mov	r8, #380	; 0x17c
+		LDR	R8, [R8] 
+ 114:	e5988000 	ldr	r8, [r8]
+		MOV	R0, R7		// repeat for r7 on hex 4 and 5 ==============================================
+ 118:	e1a00007 	mov	r0, r7
+		BL	DIVIDE		
+ 11c:	eb000006 	bl	13c <DIVIDE>
+		MOV	R4, R0		
+ 120:	e1a04000 	mov	r4, r0
+		BL	SEG7_CODE	
+ 124:	eb00000b 	bl	158 <SEG7_CODE>
+		STRB	R4, [R8]	
+ 128:	e5c84000 	strb	r4, [r8]
+		MOV	R4, R1		
+ 12c:	e1a04001 	mov	r4, r1
+		BL	SEG7_CODE	
+ 130:	eb000008 	bl	158 <SEG7_CODE>
+		STRB	R4, [R8, #1]
+ 134:	e5c84001 	strb	r4, [r8, #1]
+		B	END
+ 138:	eaffffc1 	b	44 <END>
+
+0000013c <DIVIDE>:
+
+/* Subroutine to perform the integer division R0 / 10.
+ * Returns: quotient in R1, and remainder in R0
+*/
+DIVIDE:     	MOV    R1, #0	 // r3 is quotient
+ 13c:	e3a01000 	mov	r1, #0
+
+00000140 <CONT>:
+		
+CONT:    	CMP    R0, R9	 // R9 - R1, raise flags accordingly
+ 140:	e1500009 	cmp	r0, r9
+            	BLT    DIV_END	 // if result -ve, done with division
+ 144:	ba000002 	blt	154 <DIV_END>
+            	SUB    R0, R9	 // if not -ve, subtract r9 from r0
+ 148:	e0400009 	sub	r0, r0, r9
+            	ADD    R1, #1	 // add 1 to quotient
+ 14c:	e2811001 	add	r1, r1, #1
+            	B      CONT	 // repeat sequence
+ 150:	eafffffa 	b	140 <CONT>
+
+00000154 <DIV_END>:
+
+DIV_END:    	MOV    PC, LR	 // return to caller
+ 154:	e1a0f00e 	mov	pc, lr
+
+00000158 <SEG7_CODE>:
+/* Subroutine to convert the digits from 0 to 9 to be shown on a HEX display.
+ * 	Parameters: R0 = the decimal value of the digit to be displayed
+ * 	Returns: R0 = bit patterm to be written5:02 PM 2019-02-23 to the HEX display
+ */
+
+SEG7_CODE:  	MOV     R3, #BIT_CODES
+ 158:	e3a03d06 	mov	r3, #384	; 0x180
+            	LDRB    R4, [R3, R4]    
+ 15c:	e7d34004 	ldrb	r4, [r3, r4]
+            	MOV     PC, LR     
+ 160:	e1a0f00e 	mov	pc, lr
+
+00000164 <TEST_NUM>:
+ 164:	f0f03eaa 	.word	0xf0f03eaa
+ 168:	ac000fff 	.word	0xac000fff
+ 16c:	00000000 	.word	0x00000000
+
+00000170 <ALL_ONES>:
+ 170:	ffffffff 	.word	0xffffffff
+
+00000174 <ALL_ALT>:
+ 174:	aaaaaaaa 	.word	0xaaaaaaaa
+
+00000178 <HEX_ADD1>:
+ 178:	ff200020 	.word	0xff200020
+
+0000017c <HEX_ADD2>:
+ 17c:	ff200030 	.word	0xff200030
+
+00000180 <BIT_CODES>:
+ 180:	4f5b063f 	.word	0x4f5b063f
+ 184:	077d6d66 	.word	0x077d6d66
+ 188:	0000677f 	.word	0x0000677f

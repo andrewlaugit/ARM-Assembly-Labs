@@ -1,0 +1,74 @@
+
+C:/Users/AndrewLaptop/Documents/ece243labs/lab4part1/part2.axf:     file format elf32-littlearm
+
+
+Disassembly of section .text:
+
+00000000 <__cs3_interrupt_vector>:
+/* Program that counts consecutive 1's */
+
+          .text                   // executable code follows
+          .global _start                  
+
+_start: 	MOV     R4, #TEST_NUM   // load the data word address into r4
+   0:	e3a04048 	mov	r4, #72	; 0x48
+		MOV	R5, #0		// store max in R5
+   4:	e3a05000 	mov	r5, #0
+
+00000008 <MAIN>:
+MAIN:   	LDR     R1, [R4], #4    // load word into R1
+   8:	e4941004 	ldr	r1, [r4], #4
+		CMP	R1, #0		// loop until word is 0
+   c:	e3510000 	cmp	r1, #0
+		BEQ	END
+  10:	0a000003 	beq	24 <END>
+		BL	ONES		// get number of 1s in the word
+  14:	eb000003 	bl	28 <ONES>
+		CMP	R5, R0		// compare r5-r0 to check for max
+  18:	e1550000 	cmp	r5, r0
+		MOVLT	R5, R0		// if r0 larger than r5 (neg result), store it
+  1c:	b1a05000 	movlt	r5, r0
+		B	MAIN		// repeat
+  20:	eafffff8 	b	8 <MAIN>
+
+00000024 <END>:
+END:		B	END
+  24:	eafffffe 	b	24 <END>
+
+00000028 <ONES>:
+
+ONES:		MOV     R0, #0          // R0 will hold the result
+  28:	e3a00000 	mov	r0, #0
+
+0000002c <LOOP>:
+LOOP:   	CMP     R1, #0        	// loop until the data contains no more 1's
+  2c:	e3510000 	cmp	r1, #0
+       		BEQ     END_ONES	//             
+  30:	0a000003 	beq	44 <END_ONES>
+        	LSR     R2, R1, #1    	// perform SHIFT, followed by AND
+  34:	e1a020a1 	lsr	r2, r1, #1
+        	AND     R1, R1, R2    	// removes 1 consective 1  
+  38:	e0011002 	and	r1, r1, r2
+        	ADD     R0, #1        	// count the string length so far
+  3c:	e2800001 	add	r0, r0, #1
+        	B       LOOP		
+  40:	eafffff9 	b	2c <LOOP>
+
+00000044 <END_ONES>:
+END_ONES:       MOV	PC, LR		// return to main            
+  44:	e1a0f00e 	mov	pc, lr
+
+00000048 <TEST_NUM>:
+  48:	103fe00f 	.word	0x103fe00f
+  4c:	0000000f 	.word	0x0000000f
+  50:	000000ff 	.word	0x000000ff
+  54:	00000fff 	.word	0x00000fff
+  58:	0000ffff 	.word	0x0000ffff
+  5c:	000fffff 	.word	0x000fffff
+  60:	00ffffff 	.word	0x00ffffff
+  64:	0fffffff 	.word	0x0fffffff
+  68:	ffffffff 	.word	0xffffffff
+  6c:	0000ff0f 	.word	0x0000ff0f
+  70:	000fff0f 	.word	0x000fff0f
+  74:	000ffff0 	.word	0x000ffff0
+  78:	00000000 	.word	0x00000000

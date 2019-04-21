@@ -1,0 +1,76 @@
+
+C:/Users/AndrewLaptop/Documents/ece243labs/lab3part4/part4.axf:     file format elf32-littlearm
+
+
+Disassembly of section .text:
+
+00000000 <__cs3_interrupt_vector>:
+/* Program that converts a binary number to decimal */
+           .text               // executable code follows
+           .global _start
+
+_start:     MOV	   R1, #10	// divide by value
+   0:	e3a0100a 	mov	r1, #10
+            MOV    R4, #N	// r4 holds location for binary number
+   4:	e3a0405c 	mov	r4, #92	; 0x5c
+            MOV    R5, #Digits  // R5 points to the decimal digits storage location
+   8:	e3a05060 	mov	r5, #96	; 0x60
+            LDR    R4, [R4]     // R4 holds binary number
+   c:	e5944000 	ldr	r4, [r4]
+            MOV    R0, R4       // parameter for DIVIDE goes in R0, r0 holds copy of binary number
+  10:	e1a00004 	mov	r0, r4
+            BL     DIVIDE
+  14:	eb000008 	bl	3c <DIVIDE>
+            STRB   R0, [R5]     // Ones digit is in R0, remainder
+  18:	e5c50000 	strb	r0, [r5]
+	    MOV    R0, R2       // parameter for DIVIDE goes in R0, r0 holds copy of quotient
+  1c:	e1a00002 	mov	r0, r2
+            BL     DIVIDE
+  20:	eb000005 	bl	3c <DIVIDE>
+	    STRB   R0, [R5, #1] // Tens digit is now in R0, remainder
+  24:	e5c50001 	strb	r0, [r5, #1]
+	    MOV    R0, R2       // parameter for DIVIDE goes in R0, r0 holds copy of quotient
+  28:	e1a00002 	mov	r0, r2
+            BL     DIVIDE
+  2c:	eb000002 	bl	3c <DIVIDE>
+	    STRB   R0, [R5, #2] // hundreds digit is now in R0, remainder
+  30:	e5c50002 	strb	r0, [r5, #2]
+	    STRB   R2, [R5, #3] // Thousands digit is now in R1, quotient
+  34:	e5c52003 	strb	r2, [r5, #3]
+
+00000038 <END>:
+END:        B      END
+  38:	eafffffe 	b	38 <END>
+
+0000003c <DIVIDE>:
+
+/* Subroutine to perform the integer division R0 / 10.
+ * Returns: quotient in R1, and remainder in R0
+*/
+DIVIDE:     MOV    R3, #0	 // r2 is quotient
+  3c:	e3a03000 	mov	r3, #0
+
+00000040 <CONT>:
+CONT:       CMP    R0, R1	 // R0 - R1, raise flags accordingly
+  40:	e1500001 	cmp	r0, r1
+            BLT    DIV_END	 // if result -ve, done with division
+  44:	ba000002 	blt	54 <DIV_END>
+            SUB    R0, R1	 // if not -ve, subtract r1 from r0
+  48:	e0400001 	sub	r0, r0, r1
+            ADD    R3, #1	 // add 1 to quotient
+  4c:	e2833001 	add	r3, r3, #1
+            B      CONT		 // repeat sequence
+  50:	eafffffa 	b	40 <CONT>
+
+00000054 <DIV_END>:
+
+DIV_END:    MOV    R2, R3     	 // quotient in R1 (remainder in R0)
+  54:	e1a02003 	mov	r2, r3
+            MOV    PC, LR	 // return to _start portion
+  58:	e1a0f00e 	mov	pc, lr
+
+0000005c <N>:
+  5c:	00002694 	.word	0x00002694
+
+00000060 <Digits>:
+  60:	00000000 	.word	0x00000000

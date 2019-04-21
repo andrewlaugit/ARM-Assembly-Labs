@@ -1,0 +1,148 @@
+
+C:/Users/AndrewLaptop/Documents/ece243labs/lab4part1/part3.axf:     file format elf32-littlearm
+
+
+Disassembly of section .text:
+
+00000000 <__cs3_interrupt_vector>:
+/* Program that counts consecutive 1's */
+
+          .text                   // executable code follows
+          .global _start                  
+
+_start: 	MOV     R4, #TEST_NUM   // load the data word address into r4
+   0:	e3a040c4 	mov	r4, #196	; 0xc4
+		MOV	R5, #0		// store max 1s in R5
+   4:	e3a05000 	mov	r5, #0
+		MOV	R6, #0		// store max 0s in R6
+   8:	e3a06000 	mov	r6, #0
+		MOV	R7, #0		// store max 1010s in R7
+   c:	e3a07000 	mov	r7, #0
+
+00000010 <MAIN>:
+MAIN:   	LDR     R1, [R4], #4    // load word into R1
+  10:	e4941004 	ldr	r1, [r4], #4
+		CMP	R1, #0		// loop until word is 0
+  14:	e3510000 	cmp	r1, #0
+		BEQ	END
+  18:	0a000009 	beq	44 <END>
+		BL	ONES		// get number of 1s in the word
+  1c:	eb000009 	bl	48 <ONES>
+		CMP	R5, R0		// compare r5-r0 to check for max
+  20:	e1550000 	cmp	r5, r0
+		MOVLT	R5, R0		// if r0 larger than r5 (neg result), store it
+  24:	b1a05000 	movlt	r5, r0
+		BL	ZEROS		// get number of 0s in the word
+  28:	eb000010 	bl	70 <ZEROS>
+		CMP	R6, R0		// compare r6-r0 to check for max
+  2c:	e1560000 	cmp	r6, r0
+		MOVLT	R6, R0		// if r0 larger than r6 (neg result), store it
+  30:	b1a06000 	movlt	r6, r0
+		BL	ALTS		// get number of 0s in the word
+  34:	eb000014 	bl	8c <ALTS>
+		CMP	R7, R0		// compare r7-r0 to check for max
+  38:	e1570000 	cmp	r7, r0
+		MOVLT	R7, R0		// if r0 larger than r7 (neg result), store it
+  3c:	b1a07000 	movlt	r7, r0
+		B	MAIN		// repeat
+  40:	eafffff2 	b	10 <MAIN>
+
+00000044 <END>:
+END:		B	END
+  44:	eafffffe 	b	44 <END>
+
+00000048 <ONES>:
+
+ONES:		MOV     R0, #0          // R0 will hold the result
+  48:	e3a00000 	mov	r0, #0
+		PUSH	{R1}		// save r1 for later
+  4c:	e52d1004 	push	{r1}		; (str r1, [sp, #-4]!)
+
+00000050 <LOOP_ONE>:
+LOOP_ONE:   	CMP     R1, #0        	// loop until the data contains no more 1's
+  50:	e3510000 	cmp	r1, #0
+       		BEQ     END_ONES	//             
+  54:	0a000003 	beq	68 <END_ONES>
+        	LSR     R2, R1, #1    	// perform SHIFT, followed by AND
+  58:	e1a020a1 	lsr	r2, r1, #1
+        	AND     R1, R1, R2    	// removes 1 consective 1  
+  5c:	e0011002 	and	r1, r1, r2
+        	ADD     R0, #1        	// count the string length so far
+  60:	e2800001 	add	r0, r0, #1
+        	B       LOOP_ONE		
+  64:	eafffff9 	b	50 <LOOP_ONE>
+
+00000068 <END_ONES>:
+END_ONES:       POP	{R1}		// return original r1
+  68:	e49d1004 	pop	{r1}		; (ldr r1, [sp], #4)
+		MOV	PC, LR		// return to caller
+  6c:	e1a0f00e 	mov	pc, lr
+
+00000070 <ZEROS>:
+
+ZEROS:		PUSH	{R1,LR}		// save r1 and LR for later
+  70:	e92d4002 	push	{r1, lr}
+		MOV	R2, #ALL_ONES	// get address of all ones
+  74:	e3a020f8 	mov	r2, #248	; 0xf8
+		LDR	R2, [R2]	// load all 1s into r2
+  78:	e5922000 	ldr	r2, [r2]
+		EOR	R1, R1, R2	// xor with 1s to 'not' r1, making all 1->0, 0->1 
+  7c:	e0211002 	eor	r1, r1, r2
+		BL	ONES		// get number of zeros
+  80:	ebfffff0 	bl	48 <ONES>
+		POP	{R1, LR}	// return original value
+  84:	e8bd4002 	pop	{r1, lr}
+		MOV	PC, LR		// return to caller
+  88:	e1a0f00e 	mov	pc, lr
+
+0000008c <ALTS>:
+
+ALTS:		PUSH	{R1,LR}		// save r1 and LR for later
+  8c:	e92d4002 	push	{r1, lr}
+		MOV	R3, #0		// store max in r3 for now
+  90:	e3a03000 	mov	r3, #0
+		MOV	R2, #ALL_ALT	// get address of all 1010s
+  94:	e3a020fc 	mov	r2, #252	; 0xfc
+		LDR	R2, [R2]	// load all 1010s into r2
+  98:	e5922000 	ldr	r2, [r2]
+		EOR	R1, R1, R2	// xor with 1010... to make alternatings 0s or 1s
+  9c:	e0211002 	eor	r1, r1, r2
+		BL	ONES		// if 1010 matches with 0101, get max number of alternating
+  a0:	ebffffe8 	bl	48 <ONES>
+		CMP	R3, R0		// compare r3-r0 to check for max
+  a4:	e1530000 	cmp	r3, r0
+		MOVLT	R3, R0		// if r0 larger than r3 (neg result), store it
+  a8:	b1a03000 	movlt	r3, r0
+		BL	ZEROS		// if 1010 matches with 1010, get max number of alternating
+  ac:	ebffffef 	bl	70 <ZEROS>
+		CMP	R3, R0		// compare r3-r0 to check for max
+  b0:	e1530000 	cmp	r3, r0
+		MOVLT	R3, R0		// if r0 larger than r3 (neg result), store it
+  b4:	b1a03000 	movlt	r3, r0
+		MOV	R0, R3		// return r0
+  b8:	e1a00003 	mov	r0, r3
+		POP	{R1, LR}	// restore original values
+  bc:	e8bd4002 	pop	{r1, lr}
+		MOV	PC, LR		// return to caller           
+  c0:	e1a0f00e 	mov	pc, lr
+
+000000c4 <TEST_NUM>:
+  c4:	103fe00f 	.word	0x103fe00f
+  c8:	f000000f 	.word	0xf000000f
+  cc:	000000aa 	.word	0x000000aa
+  d0:	00000fff 	.word	0x00000fff
+  d4:	0000aaaa 	.word	0x0000aaaa
+  d8:	000fffff 	.word	0x000fffff
+  dc:	00aaaaaa 	.word	0x00aaaaaa
+  e0:	0fffffff 	.word	0x0fffffff
+  e4:	aaaaaaaa 	.word	0xaaaaaaaa
+  e8:	0000ff0f 	.word	0x0000ff0f
+  ec:	000aaa0a 	.word	0x000aaa0a
+  f0:	000aa0aa 	.word	0x000aa0aa
+  f4:	00000000 	.word	0x00000000
+
+000000f8 <ALL_ONES>:
+  f8:	ffffffff 	.word	0xffffffff
+
+000000fc <ALL_ALT>:
+  fc:	aaaaaaaa 	.word	0xaaaaaaaa

@@ -1,0 +1,314 @@
+
+C:/Users/AndrewLaptop/Documents/ece243labs/lab6/part1.axf:     file format elf32-littlearm
+
+
+Disassembly of section .vectors:
+
+00000000 <__cs3_interrupt_vector>:
+   0:	ea00000e 	b	40 <__cs3_region_init_ram>
+   4:	ea00003f 	b	108 <SERVICE_UND>
+   8:	ea00003f 	b	10c <SERVICE_SVC>
+   c:	ea000040 	b	114 <SERVICE_ABT_INST>
+  10:	ea00003e 	b	110 <SERVICE_ABT_DATA>
+  14:	00000000 	.word	0x00000000
+  18:	ea000015 	b	74 <SERVICE_IRQ>
+  1c:	ea00003d 	b	118 <SERVICE_FIQ>
+
+Disassembly of section .text:
+
+00000040 <__cs3_region_start_ram>:
+                .text    
+                .global  _start 
+
+_start:                                  
+/* Set up stack pointers for IRQ and SVC processor modes */
+                LDR	R0, =0b10011	// svc mode bits
+  40:	e3a00013 	mov	r0, #19
+		MSR	CPSR, R0	
+  44:	e129f000 	msr	CPSR_fc, r0
+		LDR	SP, =0x20000	// set stack pointer
+  48:	e3a0d802 	mov	sp, #131072	; 0x20000
+		LDR	R0, =0b10010	// irq mode bits
+  4c:	e3a00012 	mov	r0, #18
+		MSR	CPSR, R0	
+  50:	e129f000 	msr	CPSR_fc, r0
+		LDR	SP, =0x3FFFFFFC	// set stack pointer
+  54:	e3e0d10f 	mvn	sp, #-1073741821	; 0xc0000003
+
+                BL       CONFIG_GIC      // configure the ARM generic
+  58:	eb00002f 	bl	11c <CONFIG_GIC>
+                                         // interrupt controller
+/* Configure the KEY pushbuttons port to generate interrupts */
+                LDR	R0, =0xff200050	 // KEY ADDRESS
+  5c:	e59f0130 	ldr	r0, [pc, #304]	; 194 <__cs3_region_init_size_ram+0xc>
+		LDR	R1, =0b1111	 // enable interrrupts in all keys
+  60:	e3a0100f 	mov	r1, #15
+		STR	R1, [R0, #8]	 // STORE INTO MASK	
+  64:	e5801008 	str	r1, [r0, #8]
+
+/* Enable IRQ interrupts in the ARM processor */
+                MOV     r0, #0b01010011
+  68:	e3a00053 	mov	r0, #83	; 0x53
+                MSR     CPSR_c, r0 // enable IRQ, MOD = SVC
+  6c:	e121f000 	msr	CPSR_c, r0
+
+00000070 <IDLE>:
+IDLE:                                    
+                B        IDLE            // main program simply idles
+  70:	eafffffe 	b	70 <IDLE>
+
+00000074 <SERVICE_IRQ>:
+
+/* Define the exception service routines */
+
+SERVICE_IRQ:    PUSH     {R0-R7, LR}     
+  74:	e92d40ff 	push	{r0, r1, r2, r3, r4, r5, r6, r7, lr}
+                LDR      R4, =0xFFFEC100 // GIC CPU interface base address
+  78:	e59f4118 	ldr	r4, [pc, #280]	; 198 <__cs3_region_init_size_ram+0x10>
+                LDR      R5, [R4, #0x0C] // read the ICCIAR in the CPU
+  7c:	e594500c 	ldr	r5, [r4, #12]
+
+00000080 <KEYS_HANDLER>:
+                                         // interface
+
+KEYS_HANDLER:                       
+                CMP      R5, #73         // check the interrupt ID
+  80:	e3550049 	cmp	r5, #73	; 0x49
+
+00000084 <UNEXPECTED>:
+
+UNEXPECTED:     BNE      UNEXPECTED      // if not recognized, stop here
+  84:	1afffffe 	bne	84 <UNEXPECTED>
+                BL       KEY_ISR         
+  88:	eb000002 	bl	98 <KEY_ISR>
+
+0000008c <EXIT_IRQ>:
+
+EXIT_IRQ:       STR      R5, [R4, #0x10] 	// write to the End of Interrupt
+  8c:	e5845010 	str	r5, [r4, #16]
+                                         	// Register (ICCEOIR)
+                POP      {R0-R7, LR}     
+  90:	e8bd40ff 	pop	{r0, r1, r2, r3, r4, r5, r6, r7, lr}
+                SUBS     PC, LR, #4      	// return from exception
+  94:	e25ef004 	subs	pc, lr, #4
+
+00000098 <KEY_ISR>:
+
+KEY_ISR:		LDR		R0, =0xff200050	 	// load key adress
+  98:	e59f00f4 	ldr	r0, [pc, #244]	; 194 <__cs3_region_init_size_ram+0xc>
+				LDR		R1, [R0, #0xC]		// READ THE EDGE CAPTURE BITS
+  9c:	e590100c 	ldr	r1, [r0, #12]
+                STR		R1,	[R0, #0xC]		// RESET THE EDGE CAPTURE
+  a0:	e580100c 	str	r1, [r0, #12]
+                
+                LDR		R3, =PREV_KEYS		// load previous pattern
+  a4:	e59f30f0 	ldr	r3, [pc, #240]	; 19c <__cs3_region_init_size_ram+0x14>
+                LDR		R2, [R3]			
+  a8:	e5932000 	ldr	r2, [r3]
+                EOR		R2, R2, R1			// adjust pattern accordingly based on edge captures
+  ac:	e0222001 	eor	r2, r2, r1
+                STR		R2, [R3]			// save new pattern
+  b0:	e5832000 	str	r2, [r3]
+                
+                LDR		R3, =0				// R3 WILL HOLD THE SEG7 PATTERNS
+  b4:	e3a03000 	mov	r3, #0
+
+000000b8 <KEY0_ISR>:
+                                
+KEY0_ISR:		ANDS	R0, R2, #0b0001			// CHECK TO SEE IF HEX0 NEEDS HAVE 0
+  b8:	e2120001 	ands	r0, r2, #1
+				BEQ		KEY1_ISR				// NO 0 NEEDED
+  bc:	0a000001 	beq	c8 <KEY1_ISR>
+                LDR		R1, =0b00111111		// seg7 for 0
+  c0:	e3a0103f 	mov	r1, #63	; 0x3f
+         		ORR		R3, R3, R1			// dd the 0 digit to the hex display word
+  c4:	e1833001 	orr	r3, r3, r1
+
+000000c8 <KEY1_ISR>:
+
+KEY1_ISR:		ANDS	R0, R2, #0b0010			// CHECK TO SEE IF HEX1 NEEDS HAVE 1
+  c8:	e2120002 	ands	r0, r2, #2
+				BEQ		KEY2_ISR			// NO 1 NEEDED
+  cc:	0a000001 	beq	d8 <KEY2_ISR>
+                LDR		R1, =0b00000110		// seg7 for 1
+  d0:	e3a01006 	mov	r1, #6
+         		ORR		R3, R3, R1, LSL #8	// add the 0 digit to the hex display word
+  d4:	e1833401 	orr	r3, r3, r1, lsl #8
+
+000000d8 <KEY2_ISR>:
+
+KEY2_ISR:		ANDS	R0, R2, #0b0100			// CHECK TO SEE IF HEX2 NEEDS HAVE 2
+  d8:	e2120004 	ands	r0, r2, #4
+				BEQ		KEY3_ISR			// NO 2 NEEDED
+  dc:	0a000001 	beq	e8 <KEY3_ISR>
+                LDR		R1, =0b01011011		// seg7 for 2
+  e0:	e3a0105b 	mov	r1, #91	; 0x5b
+         		ORR		R3, R3, R1, LSL #16 // add the 2 digit to the hex display word
+  e4:	e1833801 	orr	r3, r3, r1, lsl #16
+
+000000e8 <KEY3_ISR>:
+
+KEY3_ISR:		ANDS	R0, R2, #0b1000			// CHECK TO SEE IF HEX3 NEEDS HAVE 3
+  e8:	e2120008 	ands	r0, r2, #8
+				BEQ		KEY_ISR_END			// NO 3 NEEDED
+  ec:	0a000001 	beq	f8 <KEY_ISR_END>
+                LDR		R1, =0b01001111		// seg7 for 3
+  f0:	e3a0104f 	mov	r1, #79	; 0x4f
+         		ORR		R3, R3, R1, LSL #24	// add the 3 digit to the hex display word
+  f4:	e1833c01 	orr	r3, r3, r1, lsl #24
+
+000000f8 <KEY_ISR_END>:
+
+KEY_ISR_END:	LDR 	R2, =0xFF200020		// hex 3-0 address
+  f8:	e59f20a0 	ldr	r2, [pc, #160]	; 1a0 <__cs3_region_init_size_ram+0x18>
+				STR		R3, [R2]			// store seg7 pattern onto hex
+  fc:	e5823000 	str	r3, [r2]
+                BX		LR					// return to caller
+ 100:	e12fff1e 	bx	lr
+
+00000104 <PREV_KEYS>:
+ 104:	00000000 	.word	0x00000000
+
+00000108 <SERVICE_UND>:
+PREV_KEYS:		.word 0b0000			// stores the current pattern on the hex displays
+
+/* Define the exception service routines */
+/* Undefined instructions */
+SERVICE_UND:                                
+                    B   SERVICE_UND         
+ 108:	eafffffe 	b	108 <SERVICE_UND>
+
+0000010c <SERVICE_SVC>:
+/* Software interrupts */
+SERVICE_SVC:                                
+                    B   SERVICE_SVC         
+ 10c:	eafffffe 	b	10c <SERVICE_SVC>
+
+00000110 <SERVICE_ABT_DATA>:
+/* Aborted data reads */
+SERVICE_ABT_DATA:                           
+                    B   SERVICE_ABT_DATA    
+ 110:	eafffffe 	b	110 <SERVICE_ABT_DATA>
+
+00000114 <SERVICE_ABT_INST>:
+/* Aborted instruction fetch */
+SERVICE_ABT_INST:                           
+                    B   SERVICE_ABT_INST    
+ 114:	eafffffe 	b	114 <SERVICE_ABT_INST>
+
+00000118 <SERVICE_FIQ>:
+SERVICE_FIQ:                                
+                    B   SERVICE_FIQ                                             
+ 118:	eafffffe 	b	118 <SERVICE_FIQ>
+
+0000011c <CONFIG_GIC>:
+
+/* 
+ * Configure the Generic Interrupt Controller (GIC)
+*/
+CONFIG_GIC:
+				PUSH		{LR}
+ 11c:	e52de004 	push	{lr}		; (str lr, [sp, #-4]!)
+    			BL			CONFIG_INTERRUPT
+    			MOV		R0, #INTERVAL_TIMER_IRQ
+    			MOV		R1, #CPU0
+    			BL			CONFIG_INTERRUPT
+    			*/
+                MOV		R0, #KEYS_IRQ // 73
+ 120:	e3a00049 	mov	r0, #73	; 0x49
+    			MOV		R1, #CPU0
+ 124:	e3a01001 	mov	r1, #1
+    			BL			CONFIG_INTERRUPT
+ 128:	eb000007 	bl	14c <CONFIG_INTERRUPT>
+
+				/* configure the GIC CPU interface */
+    			LDR		R0, =0xFFFEC100		// base address of CPU interface
+ 12c:	e59f0064 	ldr	r0, [pc, #100]	; 198 <__cs3_region_init_size_ram+0x10>
+    			/* Set Interrupt Priority Mask Register (ICCPMR) */
+    			LDR		R1, =0xFFFF 			// enable interrupts of all priorities levels
+ 130:	e59f106c 	ldr	r1, [pc, #108]	; 1a4 <__cs3_region_init_size_ram+0x1c>
+    			STR		R1, [R0, #0x04]
+ 134:	e5801004 	str	r1, [r0, #4]
+    			/* Set the enable bit in the CPU Interface Control Register (ICCICR). This bit
+				 * allows interrupts to be forwarded to the CPU(s) */
+    			MOV		R1, #1
+ 138:	e3a01001 	mov	r1, #1
+    			STR		R1, [R0]
+ 13c:	e5801000 	str	r1, [r0]
+    
+    			/* Set the enable bit in the Distributor Control Register (ICDDCR). This bit
+				 * allows the distributor to forward interrupts to the CPU interface(s) */
+    			LDR		R0, =0xFFFED000
+ 140:	e59f0060 	ldr	r0, [pc, #96]	; 1a8 <__cs3_region_init_size_ram+0x20>
+    			STR		R1, [R0]    
+ 144:	e5801000 	str	r1, [r0]
+    
+    			POP     	{PC}
+ 148:	e49df004 	pop	{pc}		; (ldr pc, [sp], #4)
+
+0000014c <CONFIG_INTERRUPT>:
+ * other registers in the GIC
+ * Arguments: R0 = interrupt ID, N
+ *            R1 = CPU target
+*/
+CONFIG_INTERRUPT:
+    			PUSH		{R4-R5, LR}
+ 14c:	e92d4030 	push	{r4, r5, lr}
+    
+    			/* Configure Interrupt Set-Enable Registers (ICDISERn). 
+				 * reg_offset = (integer_div(N / 32) * 4
+				 * value = 1 << (N mod 32) */
+    			LSR		R4, R0, #3							// calculate reg_offset
+ 150:	e1a041a0 	lsr	r4, r0, #3
+    			BIC		R4, R4, #3							// R4 = reg_offset
+ 154:	e3c44003 	bic	r4, r4, #3
+				LDR		R2, =0xFFFED100
+ 158:	e59f204c 	ldr	r2, [pc, #76]	; 1ac <__cs3_region_init_size_ram+0x24>
+				ADD		R4, R2, R4							// R4 = address of ICDISER
+ 15c:	e0824004 	add	r4, r2, r4
+    
+    			AND		R2, R0, #0x1F   					// N mod 32
+ 160:	e200201f 	and	r2, r0, #31
+				MOV		R5, #1								// enable
+ 164:	e3a05001 	mov	r5, #1
+    			LSL		R2, R5, R2							// R2 = value
+ 168:	e1a02215 	lsl	r2, r5, r2
+
+				/* now that we have the register address (R4) and value (R2), we need to set the
+				 * correct bit in the GIC register */
+    			LDR		R3, [R4]								// read current register value
+ 16c:	e5943000 	ldr	r3, [r4]
+    			ORR		R3, R3, R2							// set the enable bit
+ 170:	e1833002 	orr	r3, r3, r2
+    			STR		R3, [R4]								// store the new register value
+ 174:	e5843000 	str	r3, [r4]
+
+    			/* Configure Interrupt Processor Targets Register (ICDIPTRn)
+     			 * reg_offset = integer_div(N / 4) * 4
+     			 * index = N mod 4 */
+    			BIC		R4, R0, #3							// R4 = reg_offset
+ 178:	e3c04003 	bic	r4, r0, #3
+				LDR		R2, =0xFFFED800
+ 17c:	e59f202c 	ldr	r2, [pc, #44]	; 1b0 <__cs3_region_init_size_ram+0x28>
+				ADD		R4, R2, R4							// R4 = word address of ICDIPTR
+ 180:	e0824004 	add	r4, r2, r4
+    			AND		R2, R0, #0x3						// N mod 4
+ 184:	e2002003 	and	r2, r0, #3
+				ADD		R4, R2, R4							// R4 = byte address in ICDIPTR
+ 188:	e0824004 	add	r4, r2, r4
+
+				/* now that we have the register address (R4) and value (R2), write to (only)
+				 * the appropriate byte */
+				STRB		R1, [R4]
+ 18c:	e5c41000 	strb	r1, [r4]
+    
+    			POP		{R4-R5, PC}
+ 190:	e8bd8030 	pop	{r4, r5, pc}
+ 194:	ff200050 	.word	0xff200050
+ 198:	fffec100 	.word	0xfffec100
+ 19c:	00000104 	.word	0x00000104
+ 1a0:	ff200020 	.word	0xff200020
+ 1a4:	0000ffff 	.word	0x0000ffff
+ 1a8:	fffed000 	.word	0xfffed000
+ 1ac:	fffed100 	.word	0xfffed100
+ 1b0:	fffed800 	.word	0xfffed800

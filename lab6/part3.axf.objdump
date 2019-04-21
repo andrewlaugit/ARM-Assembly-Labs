@@ -1,0 +1,433 @@
+
+C:/Users/AndrewLaptop/Documents/ece243labs/lab6/part3.axf:     file format elf32-littlearm
+
+
+Disassembly of section .vectors:
+
+00000000 <__cs3_interrupt_vector>:
+   0:	ea00000e 	b	40 <__cs3_region_init_ram>
+   4:	ea00006d 	b	1c0 <SERVICE_UND>
+   8:	ea00006d 	b	1c4 <SERVICE_SVC>
+   c:	ea00006e 	b	1cc <SERVICE_ABT_INST>
+  10:	ea00006c 	b	1c8 <SERVICE_ABT_DATA>
+  14:	00000000 	.word	0x00000000
+  18:	ea000025 	b	b4 <SERVICE_IRQ>
+  1c:	ea00006b 	b	1d0 <SERVICE_FIQ>
+
+Disassembly of section .text:
+
+00000040 <__cs3_region_start_ram>:
+
+                  .text                                       
+                  .global  _start                          
+_start:                                         
+/* Set up stack pointers for IRQ and SVC processor modes */
+                  LDR	R0, =0b10011	// svc mode bits
+  40:	e3a00013 	mov	r0, #19
+		  MSR	CPSR, R0	
+  44:	e129f000 	msr	CPSR_fc, r0
+		  LDR	SP, =0x20000	// set stack pointer
+  48:	e3a0d802 	mov	sp, #131072	; 0x20000
+
+		  LDR	R0, =0b10010	// irq mode bits
+  4c:	e3a00012 	mov	r0, #18
+		  MSR	CPSR, R0	
+  50:	e129f000 	msr	CPSR_fc, r0
+		  LDR	SP, =0x3FFFFFFC	// set stack pointer
+  54:	e3e0d10f 	mvn	sp, #-1073741821	; 0xc0000003
+
+                  BL       CONFIG_GIC       // configure the ARM generic
+  58:	eb00005d 	bl	1d4 <CONFIG_GIC>
+                                            // interrupt controller
+                  BL       CONFIG_TIMER     // configure the Interval Timer
+  5c:	eb000006 	bl	7c <CONFIG_TIMER>
+                  BL       CONFIG_KEYS      // configure the pushbutton
+  60:	eb00000d 	bl	9c <CONFIG_KEYS>
+                                            // KEYs port
+
+/* Enable IRQ interrupts in the ARM processor */
+                  MOV     r0, #0b01010011
+  64:	e3a00053 	mov	r0, #83	; 0x53
+                  MSR     CPSR_c, r0 // enable interrupts in svc mode
+  68:	e121f000 	msr	CPSR_c, r0
+                  LDR      R5, =0xFF200000  // LEDR base address
+  6c:	e59f51e4 	ldr	r5, [pc, #484]	; 258 <CONFIG_INTERRUPT+0x48>
+
+00000070 <LOOP>:
+LOOP:                                          
+                  LDR      R3, COUNT        // global variable
+  70:	e59f3034 	ldr	r3, [pc, #52]	; ac <COUNT>
+                  STR      R3, [R5]         // write to the LEDR lights
+  74:	e5853000 	str	r3, [r5]
+                  B        LOOP                
+  78:	eafffffc 	b	70 <LOOP>
+
+0000007c <CONFIG_TIMER>:
+
+/* Configure the Interval Timer to create interrupts at 0.25 second intervals */
+CONFIG_TIMER:   LDR	R0, =0xFF202000		// interval timer address
+  7c:	e59f01d8 	ldr	r0, [pc, #472]	; 25c <CONFIG_INTERRUPT+0x4c>
+
+		LDR	R1, =0x7840		// 25 mil = 17D7840, store the lower 16 bits
+  80:	e59f11d8 	ldr	r1, [pc, #472]	; 260 <__cs3_region_init_size_ram>
+		STR	R1, [R0, #8]		// count start lower bits
+  84:	e5801008 	str	r1, [r0, #8]
+		LDR	R1, =0x17D		// store the upper 16 bits
+  88:	e59f11d4 	ldr	r1, [pc, #468]	; 264 <__cs3_region_init_size_ram+0x4>
+		STR	R1, [R0, #0xC]
+  8c:	e580100c 	str	r1, [r0, #12]
+
+		LDR	R1, =0b111		// set start, continue, and interrupt
+  90:	e3a01007 	mov	r1, #7
+		STR	R1, [R0, #4]
+  94:	e5801004 	str	r1, [r0, #4]
+
+                BX       LR                  
+  98:	e12fff1e 	bx	lr
+
+0000009c <CONFIG_KEYS>:
+
+/* Configure the pushbutton KEYS to generate interrupts */
+CONFIG_KEYS:    LDR	R0, =0xff200050	 // KEY ADDRESS
+  9c:	e59f01c4 	ldr	r0, [pc, #452]	; 268 <__cs3_region_init_size_ram+0x8>
+		LDR	R1, =0b1111	 // enable interrrupts in all keys
+  a0:	e3a0100f 	mov	r1, #15
+		STR	R1, [R0, #8]	 // STORE INTO MASK
+  a4:	e5801008 	str	r1, [r0, #8]
+                  BX       LR                  
+  a8:	e12fff1e 	bx	lr
+
+000000ac <COUNT>:
+  ac:	00000000 	.word	0x00000000
+
+000000b0 <RUN>:
+  b0:	00000001 	.word	0x00000001
+
+000000b4 <SERVICE_IRQ>:
+                                            // COUNT
+
+
+/* Define the exception service routines */
+
+SERVICE_IRQ:    PUSH     {R0-R7, LR}     
+  b4:	e92d40ff 	push	{r0, r1, r2, r3, r4, r5, r6, r7, lr}
+                LDR      R4, =0xFFFEC100 // GIC CPU interface base address
+  b8:	e59f41ac 	ldr	r4, [pc, #428]	; 26c <__cs3_region_init_size_ram+0xc>
+                LDR      R5, [R4, #0x0C] // read the ICCIAR in the CPU
+  bc:	e594500c 	ldr	r5, [r4, #12]
+
+000000c0 <KEYS_HANDLER>:
+                                         // interface
+
+KEYS_HANDLER:                       
+                CMP      R5, #73         // check the interrupt ID
+  c0:	e3550049 	cmp	r5, #73	; 0x49
+		BEQ	 KEY_ISR	 // if id corresponds to keys
+  c4:	0a000005 	beq	e0 <KEY_ISR>
+		CMP	 R5, #72	 // compare against id for interval timer
+  c8:	e3550048 	cmp	r5, #72	; 0x48
+		BEQ	 TIMER_ISR
+  cc:	0a000031 	beq	198 <TIMER_ISR>
+
+000000d0 <UNEXPECTED>:
+
+UNEXPECTED:     BNE      UNEXPECTED      // if not recognized, stop here 
+  d0:	1afffffe 	bne	d0 <UNEXPECTED>
+
+000000d4 <EXIT_IRQ>:
+
+EXIT_IRQ:       STR      R5, [R4, #0x10] 	// write to the End of Interrupt
+  d4:	e5845010 	str	r5, [r4, #16]
+                                         	// Register (ICCEOIR)
+                POP      {R0-R7, LR}     
+  d8:	e8bd40ff 	pop	{r0, r1, r2, r3, r4, r5, r6, r7, lr}
+                SUBS     PC, LR, #4      	// return from exception
+  dc:	e25ef004 	subs	pc, lr, #4
+
+000000e0 <KEY_ISR>:
+
+KEY_ISR:	LDR		R0, =0xff200050	 	// load key adress
+  e0:	e59f0180 	ldr	r0, [pc, #384]	; 268 <__cs3_region_init_size_ram+0x8>
+		LDR		R1, [R0, #0xC]		// READ THE EDGE CAPTURE BITS
+  e4:	e590100c 	ldr	r1, [r0, #12]
+                STR		R1, [R0, #0xC]		// RESET THE EDGE CAPTURE
+  e8:	e580100c 	str	r1, [r0, #12]
+
+000000ec <KEY0_ISR>:
+                
+KEY0_ISR:	ANDS		R2, R1, #0b0001		// see if key0 was pressed
+  ec:	e2112001 	ands	r2, r1, #1
+		BEQ		KEY1_ISR		// if not pressed, check other keys		
+  f0:	0a000003 	beq	104 <KEY1_ISR>
+		LDR		R3, =RUN		// load run
+  f4:	e59f3174 	ldr	r3, [pc, #372]	; 270 <__cs3_region_init_size_ram+0x10>
+                LDR		R2, [R3]			
+  f8:	e5932000 	ldr	r2, [r3]
+                EOR		R2, #1			// flip run value
+  fc:	e2222001 	eor	r2, r2, #1
+                STR		R2, [R3]		// save new pattern
+ 100:	e5832000 	str	r2, [r3]
+
+00000104 <KEY1_ISR>:
+
+KEY1_ISR:	ANDS		R2, R1, #0b0010		// see if key1 was pressed
+ 104:	e2112002 	ands	r2, r1, #2
+		BEQ		KEY2_ISR		// if not pressed, check other keys
+ 108:	0a00000f 	beq	14c <KEY2_ISR>
+		LDR		R0, =0XFF202000		// load interval time address
+ 10c:	e59f0148 	ldr	r0, [pc, #328]	; 25c <CONFIG_INTERRUPT+0x4c>
+		LDR		R2, =0b1011		// stop timer
+ 110:	e3a0200b 	mov	r2, #11
+		STR		R2, [R0, #4]		// write to control reg
+ 114:	e5802004 	str	r2, [r0, #4]
+		LDR		R2, [R0, #8]		// read the low 16 bits of current timer
+ 118:	e5902008 	ldr	r2, [r0, #8]
+		LDR		R3, [R0, #0xC]		// read the high 16 bits of current timer
+ 11c:	e590300c 	ldr	r3, [r0, #12]
+		ORR		R2, R2, R3, LSL #16	// combine 2 half words into one word
+ 120:	e1822803 	orr	r2, r2, r3, lsl #16
+		LSR		R2, #1			// multiply current speed by 2, so divide count by 2
+ 124:	e1a020a2 	lsr	r2, r2, #1
+		LDR		R3, =0xFFFF		// get the lowest 16 bits
+ 128:	e59f3144 	ldr	r3, [pc, #324]	; 274 <__cs3_region_init_size_ram+0x14>
+		AND		R3, R3, R2
+ 12c:	e0033002 	and	r3, r3, r2
+		STR		R3, [R0, #8]		// store the low 16 bits of new timer
+ 130:	e5803008 	str	r3, [r0, #8]
+		LSR		R2, #16
+ 134:	e1a02822 	lsr	r2, r2, #16
+		LDR		R3, =0xFFFF		// get the highest 16 bits
+ 138:	e59f3134 	ldr	r3, [pc, #308]	; 274 <__cs3_region_init_size_ram+0x14>
+		AND		R3, R3, R2
+ 13c:	e0033002 	and	r3, r3, r2
+		STR		R3, [R0, #0xC]		// store the high 16 bits of new timer
+ 140:	e580300c 	str	r3, [r0, #12]
+		LDR		R2, =0b0111		// turn timer back on
+ 144:	e3a02007 	mov	r2, #7
+		STR		R2, [R0, #4]		// write to control reg     
+ 148:	e5802004 	str	r2, [r0, #4]
+
+0000014c <KEY2_ISR>:
+
+KEY2_ISR:	ANDS		R2, R1, #0b0100		// see if key2 was pressed
+ 14c:	e2112004 	ands	r2, r1, #4
+		BEQ		KEY_ISR_END		// if not pressed, done
+ 150:	0a00000f 	beq	194 <KEY_ISR_END>
+		LDR		R0, =0XFF202000		// load interval time address
+ 154:	e59f0100 	ldr	r0, [pc, #256]	; 25c <CONFIG_INTERRUPT+0x4c>
+		LDR		R2, =0b1011		// stop timer
+ 158:	e3a0200b 	mov	r2, #11
+		STR		R2, [R0, #4]		// write to control reg
+ 15c:	e5802004 	str	r2, [r0, #4]
+		LDR		R2, [R0, #8]		// read the low 16 bits of current timer
+ 160:	e5902008 	ldr	r2, [r0, #8]
+		LDR		R3, [R0, #0xC]		// read the high 16 bits of current timer
+ 164:	e590300c 	ldr	r3, [r0, #12]
+		ORR		R2, R2, R3, LSL #16	// combine 2 half words into one word
+ 168:	e1822803 	orr	r2, r2, r3, lsl #16
+		LSL		R2, #1			// divide current speed by 2, so multiply count by 2
+ 16c:	e1a02082 	lsl	r2, r2, #1
+		LDR		R3, =0xFFFF		// get the lowest 16 bits
+ 170:	e59f30fc 	ldr	r3, [pc, #252]	; 274 <__cs3_region_init_size_ram+0x14>
+		AND		R3, R3, R2
+ 174:	e0033002 	and	r3, r3, r2
+		STR		R3, [R0, #8]		// store the low 16 bits of new timer
+ 178:	e5803008 	str	r3, [r0, #8]
+		LSR		R2, #16
+ 17c:	e1a02822 	lsr	r2, r2, #16
+		LDR		R3, =0xFFFF		// get the highest 16 bits
+ 180:	e59f30ec 	ldr	r3, [pc, #236]	; 274 <__cs3_region_init_size_ram+0x14>
+		AND		R3, R3, R2
+ 184:	e0033002 	and	r3, r3, r2
+		STR		R3, [R0, #0xC]		// store the high 16 bits of new timer
+ 188:	e580300c 	str	r3, [r0, #12]
+		LDR		R2, =0b0111		// turn timer back on
+ 18c:	e3a02007 	mov	r2, #7
+		STR		R2, [R0, #4]		// write to control reg     
+ 190:	e5802004 	str	r2, [r0, #4]
+
+00000194 <KEY_ISR_END>:
+                
+KEY_ISR_END:	B 		EXIT_IRQ		// exit interrupt routine
+ 194:	eaffffce 	b	d4 <EXIT_IRQ>
+
+00000198 <TIMER_ISR>:
+
+TIMER_ISR:	LDR		R0, =0xFF202000		// load adddress for interval timer
+ 198:	e59f00bc 	ldr	r0, [pc, #188]	; 25c <CONFIG_INTERRUPT+0x4c>
+		LDR		R1, =1			// clear the interrupt request
+ 19c:	e3a01001 	mov	r1, #1
+		STR		R1, [R0]		
+ 1a0:	e5801000 	str	r1, [r0]
+		
+		LDR		R0, =RUN		// get run value
+ 1a4:	e59f00c4 	ldr	r0, [pc, #196]	; 270 <__cs3_region_init_size_ram+0x10>
+		LDR		R0, [R0]		
+ 1a8:	e5900000 	ldr	r0, [r0]
+
+		LDR		R2, =COUNT		// get couant value
+ 1ac:	e59f20c4 	ldr	r2, [pc, #196]	; 278 <__cs3_region_init_size_ram+0x18>
+		LDR		R1, [R2]
+ 1b0:	e5921000 	ldr	r1, [r2]
+		ADD		R1, R1, R0		// increment count by run
+ 1b4:	e0811000 	add	r1, r1, r0
+		STR		R1, [R2]		// store new count value
+ 1b8:	e5821000 	str	r1, [r2]
+
+		B 		EXIT_IRQ	       // exit interrupt routine	
+ 1bc:	eaffffc4 	b	d4 <EXIT_IRQ>
+
+000001c0 <SERVICE_UND>:
+
+
+/* Define the exception service routines */
+/* Undefined instructions */
+SERVICE_UND:                                
+                    B   SERVICE_UND         
+ 1c0:	eafffffe 	b	1c0 <SERVICE_UND>
+
+000001c4 <SERVICE_SVC>:
+/* Software interrupts */
+SERVICE_SVC:                                
+                    B   SERVICE_SVC         
+ 1c4:	eafffffe 	b	1c4 <SERVICE_SVC>
+
+000001c8 <SERVICE_ABT_DATA>:
+/* Aborted data reads */
+SERVICE_ABT_DATA:                           
+                    B   SERVICE_ABT_DATA    
+ 1c8:	eafffffe 	b	1c8 <SERVICE_ABT_DATA>
+
+000001cc <SERVICE_ABT_INST>:
+/* Aborted instruction fetch */
+SERVICE_ABT_INST:                           
+                    B   SERVICE_ABT_INST    
+ 1cc:	eafffffe 	b	1cc <SERVICE_ABT_INST>
+
+000001d0 <SERVICE_FIQ>:
+SERVICE_FIQ:                                
+                    B   SERVICE_FIQ                                             
+ 1d0:	eafffffe 	b	1d0 <SERVICE_FIQ>
+
+000001d4 <CONFIG_GIC>:
+
+/* 
+ * Configure the Generic Interrupt Controller (GIC)
+*/
+CONFIG_GIC:
+				PUSH		{LR}
+ 1d4:	e52de004 	push	{lr}		; (str lr, [sp, #-4]!)
+				/* CONFIG_INTERRUPT (int_ID (R0), CPU_target (R1)); */
+    			/*MOV		R0, #MPCORE_PRIV_TIMER_IRQ
+    			MOV		R1, #CPU0
+    			BL			CONFIG_INTERRUPT
+			*/
+    			MOV		R0, #INTERVAL_TIMER_IRQ
+ 1d8:	e3a00048 	mov	r0, #72	; 0x48
+    			MOV		R1, #CPU0
+ 1dc:	e3a01001 	mov	r1, #1
+    			BL			CONFIG_INTERRUPT
+ 1e0:	eb00000a 	bl	210 <CONFIG_INTERRUPT>
+    			
+                MOV		R0, #KEYS_IRQ // 73
+ 1e4:	e3a00049 	mov	r0, #73	; 0x49
+    			MOV		R1, #CPU0
+ 1e8:	e3a01001 	mov	r1, #1
+    			BL			CONFIG_INTERRUPT
+ 1ec:	eb000007 	bl	210 <CONFIG_INTERRUPT>
+
+				/* configure the GIC CPU interface */
+    			LDR		R0, =0xFFFEC100		// base address of CPU interface
+ 1f0:	e59f0074 	ldr	r0, [pc, #116]	; 26c <__cs3_region_init_size_ram+0xc>
+    			/* Set Interrupt Priority Mask Register (ICCPMR) */
+    			LDR		R1, =0xFFFF 			// enable interrupts of all priorities levels
+ 1f4:	e59f1078 	ldr	r1, [pc, #120]	; 274 <__cs3_region_init_size_ram+0x14>
+    			STR		R1, [R0, #0x04]
+ 1f8:	e5801004 	str	r1, [r0, #4]
+    			/* Set the enable bit in the CPU Interface Control Register (ICCICR). This bit
+				 * allows interrupts to be forwarded to the CPU(s) */
+    			MOV		R1, #1
+ 1fc:	e3a01001 	mov	r1, #1
+    			STR		R1, [R0]
+ 200:	e5801000 	str	r1, [r0]
+    
+    			/* Set the enable bit in the Distributor Control Register (ICDDCR). This bit
+				 * allows the distributor to forward interrupts to the CPU interface(s) */
+    			LDR		R0, =0xFFFED000
+ 204:	e59f0070 	ldr	r0, [pc, #112]	; 27c <__cs3_region_init_size_ram+0x1c>
+    			STR		R1, [R0]    
+ 208:	e5801000 	str	r1, [r0]
+    
+    			POP     	{PC}
+ 20c:	e49df004 	pop	{pc}		; (ldr pc, [sp], #4)
+
+00000210 <CONFIG_INTERRUPT>:
+ * other registers in the GIC
+ * Arguments: R0 = interrupt ID, N
+ *            R1 = CPU target
+*/
+CONFIG_INTERRUPT:
+    			PUSH		{R4-R5, LR}
+ 210:	e92d4030 	push	{r4, r5, lr}
+    
+    			/* Configure Interrupt Set-Enable Registers (ICDISERn). 
+				 * reg_offset = (integer_div(N / 32) * 4
+				 * value = 1 << (N mod 32) */
+    			LSR		R4, R0, #3							// calculate reg_offset
+ 214:	e1a041a0 	lsr	r4, r0, #3
+    			BIC		R4, R4, #3							// R4 = reg_offset
+ 218:	e3c44003 	bic	r4, r4, #3
+				LDR		R2, =0xFFFED100
+ 21c:	e59f205c 	ldr	r2, [pc, #92]	; 280 <__cs3_region_init_size_ram+0x20>
+				ADD		R4, R2, R4							// R4 = address of ICDISER
+ 220:	e0824004 	add	r4, r2, r4
+    
+    			AND		R2, R0, #0x1F   					// N mod 32
+ 224:	e200201f 	and	r2, r0, #31
+				MOV		R5, #1								// enable
+ 228:	e3a05001 	mov	r5, #1
+    			LSL		R2, R5, R2							// R2 = value
+ 22c:	e1a02215 	lsl	r2, r5, r2
+
+				/* now that we have the register address (R4) and value (R2), we need to set the
+				 * correct bit in the GIC register */
+    			LDR		R3, [R4]								// read current register value
+ 230:	e5943000 	ldr	r3, [r4]
+    			ORR		R3, R3, R2							// set the enable bit
+ 234:	e1833002 	orr	r3, r3, r2
+    			STR		R3, [R4]								// store the new register value
+ 238:	e5843000 	str	r3, [r4]
+
+    			/* Configure Interrupt Processor Targets Register (ICDIPTRn)
+     			 * reg_offset = integer_div(N / 4) * 4
+     			 * index = N mod 4 */
+    			BIC		R4, R0, #3							// R4 = reg_offset
+ 23c:	e3c04003 	bic	r4, r0, #3
+				LDR		R2, =0xFFFED800
+ 240:	e59f203c 	ldr	r2, [pc, #60]	; 284 <__cs3_region_init_size_ram+0x24>
+				ADD		R4, R2, R4							// R4 = word address of ICDIPTR
+ 244:	e0824004 	add	r4, r2, r4
+    			AND		R2, R0, #0x3						// N mod 4
+ 248:	e2002003 	and	r2, r0, #3
+				ADD		R4, R2, R4							// R4 = byte address in ICDIPTR
+ 24c:	e0824004 	add	r4, r2, r4
+
+				/* now that we have the register address (R4) and value (R2), write to (only)
+				 * the appropriate byte */
+				STRB		R1, [R4]
+ 250:	e5c41000 	strb	r1, [r4]
+    
+    			POP		{R4-R5, PC}
+ 254:	e8bd8030 	pop	{r4, r5, pc}
+ 258:	ff200000 	.word	0xff200000
+ 25c:	ff202000 	.word	0xff202000
+ 260:	00007840 	.word	0x00007840
+ 264:	0000017d 	.word	0x0000017d
+ 268:	ff200050 	.word	0xff200050
+ 26c:	fffec100 	.word	0xfffec100
+ 270:	000000b0 	.word	0x000000b0
+ 274:	0000ffff 	.word	0x0000ffff
+ 278:	000000ac 	.word	0x000000ac
+ 27c:	fffed000 	.word	0xfffed000
+ 280:	fffed100 	.word	0xfffed100
+ 284:	fffed800 	.word	0xfffed800

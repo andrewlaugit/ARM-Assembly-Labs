@@ -1,0 +1,183 @@
+
+C:/Users/AndrewLaptop/Documents/ece243labs/lab5/part2.axf:     file format elf32-littlearm
+
+
+Disassembly of section .text:
+
+00000000 <__cs3_interrupt_vector>:
+/* Program that counts 0-99 on a .25 second delay */
+
+          .text                   // executable code follows
+          .global _start                  
+
+_start: 	MOV     R4, #KEY_ADD    // load the key edgecapture
+   0:	e3a04f42 	mov	r4, #264	; 0x108
+		LDR	R4, [R4]	
+   4:	e5944000 	ldr	r4, [r4]
+		MOV	R5, #0		// r3 will hold the display number, ones
+   8:	e3a05000 	mov	r5, #0
+		MOV	R6, #0		// r3 will hold the display number, tens
+   c:	e3a06000 	mov	r6, #0
+		MOV	R7, #1		// will be like boolean, 1 for go, 0 for stop
+  10:	e3a07001 	mov	r7, #1
+		BL	DISPLAY		// write 0 to the hex0 initially
+  14:	eb000023 	bl	a8 <DISPLAY>
+
+00000018 <MAIN>:
+MAIN:		LDR	R1, [R4, #12]	// read the KEY	
+  18:	e594100c 	ldr	r1, [r4, #12]
+		CMP	R1, #0		// if not equal, key has been pressed
+  1c:	e3510000 	cmp	r1, #0
+        	MOV	R0, R7		// update go status
+  20:	e1a00007 	mov	r0, r7
+		BLNE	STARTSTOP
+  24:	1b00000e 	blne	64 <STARTSTOP>
+        	MOV 	R7, R0
+  28:	e1a07000 	mov	r7, r0
+        	MOV	R12, #0
+  2c:	e3a0c000 	mov	r12, #0
+        	STRNE 	R1, [R4, #12]	// reset the edgecapture if set
+  30:	1584100c 	strne	r1, [r4, #12]
+        	MOV 	R0, R5		// update count
+  34:	e1a00005 	mov	r0, r5
+        	MOV 	R1, R6
+  38:	e1a01006 	mov	r1, r6
+		BL	COUNT		// increment count accordingly
+  3c:	eb00000f 	bl	80 <COUNT>
+        	MOV 	R5, R0
+  40:	e1a05000 	mov	r5, r0
+       		MOV 	R6, R1
+  44:	e1a06001 	mov	r6, r1
+        	BL	DISPLAY		// write the count to the hex
+  48:	eb000016 	bl	a8 <DISPLAY>
+		BL 	DELAY		// do a 0.25 sec delay	
+  4c:	eb000000 	bl	54 <DELAY>
+		B	MAIN		// loop
+  50:	eafffff0 	b	18 <MAIN>
+
+00000054 <DELAY>:
+
+DELAY:		LDR	R0, =200000000	// delay counter
+  54:	e59f00bc 	ldr	r0, [pc, #188]	; 118 <BIT_CODES+0xc>
+
+00000058 <DELAY_LOOP>:
+DELAY_LOOP:	SUBS	R0, #1		// decrement 1 each time until 0
+  58:	e2500001 	subs	r0, r0, #1
+		BNE	DELAY_LOOP
+  5c:	1afffffd 	bne	58 <DELAY_LOOP>
+		MOV	PC, LR		// return to caller
+  60:	e1a0f00e 	mov	pc, lr
+
+00000064 <STARTSTOP>:
+
+STARTSTOP:	CMP	R1, #1
+  64:	e3510001 	cmp	r1, #1
+		BEQ 	FLIPGO
+  68:	0a000000 	beq	70 <FLIPGO>
+        	MOV	PC, LR		// return to caller
+  6c:	e1a0f00e 	mov	pc, lr
+
+00000070 <FLIPGO>:
+        
+FLIPGO:		CMP	R0, #0
+  70:	e3500000 	cmp	r0, #0
+		MOVEQ	R0, #1		// if already at go, make stop
+  74:	03a00001 	moveq	r0, #1
+		MOVNE	R0, #0		// if already at stop, make go
+  78:	13a00000 	movne	r0, #0
+       		MOV	PC, LR		// return to caller
+  7c:	e1a0f00e 	mov	pc, lr
+
+00000080 <COUNT>:
+
+COUNT:		MOV	R3, #10		// max digit range
+  80:	e3a0300a 	mov	r3, #10
+		CMP	R7, #1		// if no go, return
+  84:	e3570001 	cmp	r7, #1
+		MOVNE	PC, LR		
+  88:	11a0f00e 	movne	pc, lr
+		ADD	R0, #1		// increment 1s
+  8c:	e2800001 	add	r0, r0, #1
+		CMP	R0, R3		// if 10, make it 0 and increment 10s by 1
+  90:	e1500003 	cmp	r0, r3
+		MOVEQ	R0, #0
+  94:	03a00000 	moveq	r0, #0
+		ADDEQ	R1, #1
+  98:	02811001 	addeq	r1, r1, #1
+		CMP	R1, R3		// if 100, make it 0
+  9c:	e1510003 	cmp	r1, r3
+		MOVEQ	R1, #0
+  a0:	03a01000 	moveq	r1, #0
+		MOV	PC, LR		// return to caller
+  a4:	e1a0f00e 	mov	pc, lr
+
+000000a8 <DISPLAY>:
+
+/* Display R5 on HEX1-0, R6 on HEX3-2 and R7 on HEX5-4 */
+DISPLAY:	PUSH {LR}       	
+  a8:	e52de004 	push	{lr}		; (str lr, [sp, #-4]!)
+		MOV	R2, #0
+  ac:	e3a02000 	mov	r2, #0
+		MOV	R3, #HEX_ADD1	// r8 holds hex address of HEX3-HEX0
+  b0:	e3a03c01 	mov	r3, #256	; 0x100
+		LDR	R3, [R3]
+  b4:	e5933000 	ldr	r3, [r3]
+		MOV	R1, R5
+  b8:	e1a01005 	mov	r1, r5
+		BL	SEG7_CODE
+  bc:	eb00000a 	bl	ec <SEG7_CODE>
+		ORR	R2, R2, R0	
+  c0:	e1822000 	orr	r2, r2, r0
+		MOV	R1, R6
+  c4:	e1a01006 	mov	r1, r6
+		BL	SEG7_CODE
+  c8:	eb000007 	bl	ec <SEG7_CODE>
+		ORR	R2, R2, R0, LSL #8
+  cc:	e1822400 	orr	r2, r2, r0, lsl #8
+		STR	R2, [R3]
+  d0:	e5832000 	str	r2, [r3]
+	
+		MOV	R2, #0
+  d4:	e3a02000 	mov	r2, #0
+		MOV	R3, #HEX_ADD2	// r8 holds hex address of HEX5-HEX4
+  d8:	e3a03f41 	mov	r3, #260	; 0x104
+		LDR	R3, [R3]
+  dc:	e5933000 	ldr	r3, [r3]
+		STR	R2, [R3]	// blank the screen
+  e0:	e5832000 	str	r2, [r3]
+        	POP {LR}   
+  e4:	e49de004 	pop	{lr}		; (ldr lr, [sp], #4)
+		MOV	PC, LR		// return to caller
+  e8:	e1a0f00e 	mov	pc, lr
+
+000000ec <SEG7_CODE>:
+/* Subroutine to convert the digits from 0 to 9 to be shown on a HEX display.
+ * 	Parameters: R0 = the decimal value of the digit to be displayed
+ * 	Returns: R0 = bit patterm to be written to the HEX display
+ */
+
+SEG7_CODE:  	PUSH 	{R2}
+  ec:	e52d2004 	push	{r2}		; (str r2, [sp, #-4]!)
+		MOV     R2, #BIT_CODES
+  f0:	e3a02f43 	mov	r2, #268	; 0x10c
+            	LDRB    R0, [R2, R1]
+  f4:	e7d20001 	ldrb	r0, [r2, r1]
+		POP	{R2}
+  f8:	e49d2004 	pop	{r2}		; (ldr r2, [sp], #4)
+            	MOV     PC, LR     
+  fc:	e1a0f00e 	mov	pc, lr
+
+00000100 <HEX_ADD1>:
+ 100:	ff200020 	.word	0xff200020
+
+00000104 <HEX_ADD2>:
+ 104:	ff200030 	.word	0xff200030
+
+00000108 <KEY_ADD>:
+ 108:	ff200050 	.word	0xff200050
+
+0000010c <BIT_CODES>:
+ 10c:	4f5b063f 	.word	0x4f5b063f
+ 110:	077d6d66 	.word	0x077d6d66
+ 114:	0000677f 	.word	0x0000677f
+ 118:	0bebc200 	.word	0x0bebc200
